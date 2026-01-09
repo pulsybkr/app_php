@@ -1,0 +1,79 @@
+{  
+  "name": "siteweb.com",
+  "short_name": "siteweb",
+  "description": "Rencontre",
+  "start_url": "/profile_test_notif.php",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E31C79",
+  "orientation": "portrait",
+  "scope": "/",
+  "categories": ["social", "dating"],
+  "icons": [
+    {
+      "src": "/icon-72.png",
+      "sizes": "72x72",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-96.png",
+      "sizes": "96x96",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-128.png",
+      "sizes": "128x128",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-144.png",
+      "sizes": "144x144",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-152.png",
+      "sizes": "152x152",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-384.png",
+      "sizes": "384x384",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/screenshot1.png",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Messages",
+      "short_name": "Messages",
+      "description": "Voir vos messages",
+      "url": "/APImessages.php",
+      "icons": [{ "src": "/icon-message.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Nouvelle recherche",
+      "short_name": "Recherche",
+      "description": "Trouver des membres",
+      "url": "/voirlesprofils.php",
+      "icons": [{ "src": "/icon-search.png", "sizes": "96x96" }]
+    }
+  ]
+}
