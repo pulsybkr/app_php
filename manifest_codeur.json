@@ -1,4 +1,4 @@
-{  
+{
   "name": "siteweb.com",
   "short_name": "siteweb",
   "description": "Rencontre",
@@ -8,7 +8,11 @@
   "theme_color": "#E31C79",
   "orientation": "portrait",
   "scope": "/",
-  "categories": ["social", "dating"],
+  "gcm_sender_id": "103953800507",
+  "categories": [
+    "social",
+    "dating"
+  ],
   "icons": [
     {
       "src": "/icon-72.png",
@@ -66,14 +70,24 @@
       "short_name": "Messages",
       "description": "Voir vos messages",
       "url": "/APImessages.php",
-      "icons": [{ "src": "/icon-message.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icon-message.png",
+          "sizes": "96x96"
+        }
+      ]
     },
     {
       "name": "Nouvelle recherche",
       "short_name": "Recherche",
       "description": "Trouver des membres",
       "url": "/voirlesprofils.php",
-      "icons": [{ "src": "/icon-search.png", "sizes": "96x96" }]
+      "icons": [
+        {
+          "src": "/icon-search.png",
+          "sizes": "96x96"
+        }
+      ]
     }
   ]
 }

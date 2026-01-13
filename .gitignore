@@ -1,0 +1,25 @@
+# Variables d'environnement
+
+# Données Docker
+mysql_data/
+
+# Logs
+*.log
+
+# Fichiers temporaires
+*.tmp
+*.temp
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Vendor (si vous utilisez Composer)
+vendor/

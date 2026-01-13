@@ -8,23 +8,49 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
-require_once 'connnect/acces.php';
+// MODE DÉVELOPPEMENT : Vérifier si MySQL est disponible
+$db_available = false;
+$user = null;
+$notification = null;
+$has_new_notification = false;
+$notification_data = null;
 
-// Récupérer les informations de l'utilisateur
-$user_id = $_SESSION['user_id'];
-$stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
-$stmt->execute([$user_id]);
-$user = $stmt->fetch(PDO::FETCH_ASSOC);
-
-// Vérifier si un message existe pour ce receiver_id pour les notifs
-$stmt = $pdo->prepare("SELECT * FROM notification_message WHERE receiver_id = ? ORDER BY created_at DESC LIMIT 1");
-$stmt->execute([$user_id]);
-$notification = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if ($notification) {
-    $has_new_notification = true;
-    $notification_data = $notification;
-
+try {
+    require_once 'connnect/acces.php';
+    $db_available = true;
+    
+    // Récupérer les informations de l'utilisateur
+    $user_id = $_SESSION['user_id'];
+    $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+    $stmt->execute([$user_id]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Vérifier si un message existe pour ce receiver_id pour les notifs
+    $stmt = $pdo->prepare("SELECT * FROM notification_message WHERE receiver_id = ? ORDER BY created_at DESC LIMIT 1");
+    $stmt->execute([$user_id]);
+    $notification = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($notification) {
+        $has_new_notification = true;
+        $notification_data = $notification;
+    }
+} catch (Exception $e) {
+    // Base de données non disponible - utiliser des données de test
+    $db_available = false;
+    $user = [
+        'id' => $_SESSION['user_id'],
+        'username' => $_SESSION['username'] ?? 'Utilisateur Test',
+        'email' => $_SESSION['email'] ?? 'test@siteweb.com',
+    ];
+    
+    // Notification de test
+    $has_new_notification = false; // Changez à true pour tester les notifications
+    $notification_data = [
+        'sender_id' => 1,
+        'receiver_id' => 1,
+        'message' => 'Message de test - Bienvenue !',
+        'created_at' => date('Y-m-d H:i:s')
+    ];
 }
 
 // Traitement de la déconnexion
@@ -59,6 +85,10 @@ if (isset($_GET['logout'])) {
     <link rel="icon" type="image/png" href="/icon-192.png">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- PWA & Notification Scripts -->
+    <script src="/js/pwa-install-banner.js" defer></script>
+    <script src="/js/push-notifications.js" defer></script>
     
     <style>
         :root {
@@ -741,70 +771,7 @@ function playSound() {
  
  
  
- <script>
-// Gestion de l'installation PWA application
-let deferredPrompt;
-const installButton = document.createElement('button');
 
-window.addEventListener('beforeinstallprompt', (e) => {
-    // Empêche le navigateur d'afficher automatiquement le prompt
-    e.preventDefault();
-    // Stocke l'événement pour l'utiliser plus tard
-    deferredPrompt = e;
-    
-    // Affiche un bouton d'installation
-    installButton.textContent = '📱 <?php echo ($lang == 'fr') ? 'Reçevez directement les alertes sonores des messages que les membres vous envoient en installant gratuitement Francabrasil application sur votre téléphone : INSTALLER' : 'Receba alertas sonoros diretos para mensagens enviadas por membros instalando a aplicação gratuita Francabrasil no seu telemóvel : INSTALAR'; ?>';
-    installButton.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: linear-gradient(135deg, var(--secondary-color) 0%, var(--primary-color) 100%);
-        color: white;
-        border: none;
-        padding: 6px 2px;
-        border-radius: 10px;
-        font-weight: bold;
-        cursor: pointer;
-        z-index: 1000;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    `;
-    installButton.onclick = installPWA;
-    document.body.appendChild(installButton);
-});
-
-async function installPWA() {
-    if (!deferredPrompt) return;
-    
-    // Affiche le prompt d'installation
-    deferredPrompt.prompt();
-    
-    // Attends que l'utilisateur réponde
-    const { outcome } = await deferredPrompt.userChoice;
-    
-    if (outcome === 'accepted') {
-        console.log('✅ Application installée');
-        // Cache le bouton après installation
-        installButton.style.display = 'none';
-    }
-    
-    // Réinitialise la variable
-    deferredPrompt = null;
-}
-
-// Cache le bouton si l'app est déjà installée
-window.addEventListener('appinstalled', () => {
-    console.log('🎉 PWA installée avec succès');
-    if (installButton) installButton.style.display = 'none';
-});
-
-// Vérifie si l'app est déjà installée
-if (window.matchMedia('(display-mode: standalone)').matches) {
-    console.log('📱 App déjà installée');
-}
-</script>
- 
- 
 
 </body>
 </html>
