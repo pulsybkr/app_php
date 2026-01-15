@@ -584,6 +584,12 @@
             }
         });
 
+        // Écouter l'événement personnalisé showPWAInstall (déclenché par le bouton externe)
+        window.addEventListener('showPWAInstall', () => {
+            console.log('📱 showPWAInstall event reçu');
+            handleInstallClick();
+        });
+
         // Sur iOS ou navigateurs sans beforeinstallprompt
         window.addEventListener('load', () => {
             // Attendre un peu pour voir si beforeinstallprompt arrive
@@ -600,6 +606,12 @@
             console.log('🎉 PWA installée avec succès');
             localStorage.setItem('pwa_installed', 'true');
             closeBanner();
+
+            // Cacher le bouton PWA externe s'il existe
+            const pwaControl = document.getElementById('pwaInstallControl');
+            if (pwaControl) {
+                pwaControl.style.display = 'none';
+            }
         });
     }
 

@@ -409,6 +409,31 @@ if (isset($_GET['logout'])) {
 
 <div class="main-content">
 <div class="container">
+        <!-- Bouton Installer PWA (caché si déjà installée) -->
+<div id="pwaInstallControl" style="margin-bottom: 15px; display: none;">
+    <button onclick="triggerPWAInstall()"
+            id="pwaInstallBtn"
+            style="background: linear-gradient(135deg, #0055A4, #E31C79);
+                   color: white;
+                   border: none;
+                   padding: 12px 20px;
+                   border-radius: 50px;
+                   font-size: 14px;
+                   font-weight: bold;
+                   cursor: pointer;
+                   box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+                   display: flex;
+                   align-items: center;
+                   gap: 8px;
+                   transition: all 0.3s;">
+        <span>📱</span>
+        <span><?php echo ($lang == 'fr') ? 'Installer l\'application' : 'Instalar aplicação'; ?></span>
+    </button>
+    <div style="font-size: 11px; color: #666; margin-top: 5px; text-align: center;">
+        <?php echo ($lang == 'fr') ? 'Pour recevoir les alertes sonores' : 'Para receber alertas sonoros'; ?>
+    </div>
+</div>
+
         <!-- Bouton active notification avec meilleur feedback -->
 <div id="notificationControl" >
     <button onclick="toggleNotificationState()"
@@ -443,34 +468,48 @@ if (isset($_GET['logout'])) {
 
   <!-- Bouton "active les notification" --> 
 <script>
-let notificationState = 'off'; // 'off', 'asking', 'on', 'blocked', 'ios-web', 'not-supported'
+let notificationState = 'off'; // 'off', 'asking', 'on', 'blocked'
 
-// Détecter iOS
+// Détecter plateforme
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
-// Initialiser
-initNotifications();
+// Initialiser au chargement
+document.addEventListener('DOMContentLoaded', function() {
+    initNotifications();
+    initPWAButton();
+});
 
-function initNotifications() {
-    // iOS dans navigateur web (pas installé comme PWA)
-    if (isIOS && !isStandalone) {
-        updateUI('ios-web');
-        return;
-    }
+// ===== GESTION BOUTON PWA =====
+function initPWAButton() {
+    const pwaControl = document.getElementById('pwaInstallControl');
+    if (!pwaControl) return;
     
+    // Afficher le bouton si l'app n'est PAS installée
+    if (!isStandalone) {
+        pwaControl.style.display = 'block';
+    } else {
+        pwaControl.style.display = 'none';
+    }
+}
+
+function triggerPWAInstall() {
+    // Déclencher l'événement pour pwa-install-banner.js
+    const event = new CustomEvent('showPWAInstall');
+    window.dispatchEvent(event);
+}
+
+// ===== GESTION NOTIFICATIONS =====
+function initNotifications() {
     // Vérifier si API Notification existe
     if (!("Notification" in window)) {
-        // Sur iOS PWA installée, les notifications peuvent fonctionner via Service Worker
-        if (isIOS && isStandalone && 'serviceWorker' in navigator) {
-            notificationState = 'off';
-            updateUI('off');
-            return;
-        }
-        updateUI('not-supported');
+        // Pas de support - mais on ne bloque pas, on affiche juste OFF
+        console.log('❌ API Notification non disponible');
+        updateUI('off');
         return;
     }
     
+    // Lire la permission actuelle
     switch(Notification.permission) {
         case 'granted':
             notificationState = 'on';
@@ -487,41 +526,45 @@ function initNotifications() {
 }
 
 async function toggleNotificationState() {
-    // iOS dans navigateur - rediriger vers installation PWA
-    if (isIOS && !isStandalone) {
-        showIOSInstallPrompt();
+    // Si pas de support Notification, essayer quand même (certains navigateurs)
+    if (!("Notification" in window)) {
+        alert('<?php echo ($lang == "fr") ? "Les notifications ne sont pas supportées par ce navigateur. Installez l\'app pour recevoir les alertes." : "As notificações não são suportadas por este navegador. Instale o app para receber alertas."; ?>');
         return;
     }
-    
-    if (!("Notification" in window)) return;
     
     if (notificationState === 'off') {
         // Activer
         notificationState = 'asking';
         updateUI('asking');
         
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-            notificationState = 'on';
-            updateUI('on');
-            showNotification('✅ Activé', 'Notifications activées avec succès');
-        } else if (permission === 'denied') {
-            notificationState = 'blocked';
-            updateUI('blocked');
-        } else {
+        try {
+            const permission = await Notification.requestPermission();
+            
+            if (permission === 'granted') {
+                notificationState = 'on';
+                updateUI('on');
+                showNotification('✅ Activé', 'Notifications activées avec succès');
+            } else if (permission === 'denied') {
+                notificationState = 'blocked';
+                updateUI('blocked');
+            } else {
+                notificationState = 'off';
+                updateUI('off');
+            }
+        } catch (err) {
+            console.error('Erreur permission:', err);
             notificationState = 'off';
             updateUI('off');
         }
         
     } else if (notificationState === 'on') {
-        // Désactiver - donner instructions
+        // Info sur comment désactiver
         notificationState = 'off';
         updateUI('off');
         showDisableInfo();
         
     } else if (notificationState === 'blocked') {
-        // Débloquer
+        // Info sur comment débloquer
         showUnblockInfo();
     }
 }
@@ -532,118 +575,78 @@ function updateUI(state) {
     const text = document.getElementById('btnText');
     const status = document.getElementById('notificationStatus');
     
+    if (!btn || !icon || !text || !status) return;
+    
+    btn.disabled = false;
+    
     switch(state) {
         case 'on':
             btn.style.background = '#4CAF50';
             icon.textContent = '🔔';
-            text.textContent = '<?php echo ($lang == 'fr') ? 'Alerte sonore ON' : 'Alerta de sonoro ON'; ?>';
-            status.textContent = '✓ <?php echo ($lang == 'fr') ? 'Activée' : 'Habilitado'; ?>';
+            text.textContent = '<?php echo ($lang == "fr") ? "Alerte sonore ON" : "Alerta sonoro ON"; ?>';
+            status.textContent = '✓ <?php echo ($lang == "fr") ? "Activée" : "Habilitado"; ?>';
             status.style.color = '#4CAF50';
-            btn.disabled = false;
             break;
             
         case 'off':
             btn.style.background = '#E31C79';
             icon.textContent = '🔕';
-            text.textContent = '<?php echo ($lang == 'fr') ? 'Alerte sonore OFF' : 'Alerta sonoro OFF'; ?>';
-            status.textContent = '<?php echo ($lang == 'fr') ? 'Cliquez pour activer' : 'Clique para ativar'; ?>';
+            text.textContent = '<?php echo ($lang == "fr") ? "Alerte sonore OFF" : "Alerta sonoro OFF"; ?>';
+            status.textContent = '<?php echo ($lang == "fr") ? "Cliquez pour activer" : "Clique para ativar"; ?>';
             status.style.color = '#666';
-            btn.disabled = false;
             break;
             
         case 'blocked':
             btn.style.background = '#f44336';
             icon.textContent = '🚫';
-            text.textContent = 'Bloqué';
-            status.textContent = 'Autorisez dans les paramètres';
+            text.textContent = '<?php echo ($lang == "fr") ? "Bloqué" : "Bloqueado"; ?>';
+            status.textContent = '<?php echo ($lang == "fr") ? "Autorisez dans les paramètres" : "Autorize nas configurações"; ?>';
             status.style.color = '#f44336';
-            btn.disabled = false;
             break;
             
         case 'asking':
             btn.style.background = '#FF9800';
             icon.textContent = '⏳';
-            text.textContent = 'Demande en cours...';
-            status.textContent = 'Répondez à la popup';
+            text.textContent = '<?php echo ($lang == "fr") ? "Demande en cours..." : "Solicitando..."; ?>';
+            status.textContent = '<?php echo ($lang == "fr") ? "Répondez à la popup" : "Responda ao popup"; ?>';
             status.style.color = '#FF9800';
             btn.disabled = true;
             break;
-            
-        case 'ios-web':
-            // iOS dans Safari/navigateur - inciter à installer la PWA
-            btn.style.background = 'linear-gradient(135deg, #0055A4, #E31C79)';
-            icon.textContent = '📱';
-            text.textContent = '<?php echo ($lang == 'fr') ? 'Installer l\'app' : 'Instalar app'; ?>';
-            status.textContent = '<?php echo ($lang == 'fr') ? 'Requis pour les notifications' : 'Necessário para notificações'; ?>';
-            status.style.color = '#0055A4';
-            btn.disabled = false;
-            break;
-            
-        case 'not-supported':
-            btn.style.background = '#9E9E9E';
-            icon.textContent = '📵';
-            text.textContent = '<?php echo ($lang == 'fr') ? 'Non disponible' : 'Indisponível'; ?>';
-            status.textContent = '<?php echo ($lang == 'fr') ? 'Installez l\'app pour les alertes' : 'Instale o app para alertas'; ?>';
-            status.style.color = '#9E9E9E';
-            btn.disabled = false;
-            break;
     }
-}
-
-function showIOSInstallPrompt() {
-    // Déclencher l'overlay d'installation PWA si disponible
-    const event = new CustomEvent('showPWAInstall');
-    window.dispatchEvent(event);
-    
-    // Fallback si pas d'overlay
-    setTimeout(() => {
-        const lang = document.documentElement.lang || 'fr';
-        const message = lang === 'pt'
-            ? 'Para receber notificações no iOS:\n\n1. Toque em Partilhar (📤)\n2. Selecione "Adicionar ao Ecrã Inicial"\n3. Abra a app instalada\n\nAs notificações só funcionam na app instalada.'
-            : 'Pour recevoir les notifications sur iOS:\n\n1. Appuyez sur Partager (📤)\n2. Sélectionnez "Sur l\'écran d\'accueil"\n3. Ouvrez l\'app installée\n\nLes notifications ne fonctionnent que dans l\'app installée.';
-        alert(message);
-    }, 100);
 }
 
 function showNotification(title, body) {
     if (Notification.permission === 'granted') {
-        const notif = new Notification(title, {
-            body: body,
-            icon: '/icon-192.png'
-        });
-        
-        setTimeout(() => notif.close(), 3000);
+        try {
+            const notif = new Notification(title, {
+                body: body,
+                icon: '/icon-192.png'
+            });
+            setTimeout(() => notif.close(), 3000);
+        } catch (e) {
+            console.log('Notification via SW requise');
+        }
     }
 }
 
 function showDisableInfo() {
-    alert(`Pour désactiver complètement:
-    
-1. Paramètres navigateur
-2. Paramètres du site
-3. Notifications
-4. Bloquer ce site
-
-OU copiez-collez:
-chrome://settings/content/notifications`);
+    const lang = document.documentElement.lang || 'fr';
+    const message = lang === 'pt'
+        ? 'Para desativar:\n\n1. Configurações do navegador\n2. Configurações do site\n3. Notificações\n4. Bloquear este site'
+        : 'Pour désactiver:\n\n1. Paramètres navigateur\n2. Paramètres du site\n3. Notifications\n4. Bloquer ce site';
+    alert(message);
 }
 
 function showUnblockInfo() {
-    alert(`Notifications bloquées !
-
-Pour débloquer:
-1. Cliquez sur 🔒 (à gauche de l'URL)
-2. Choisissez "Notifications"
-3. Autorisez
-
-OU:
-chrome://settings/content/notifications`);
+    const lang = document.documentElement.lang || 'fr';
+    const message = lang === 'pt'
+        ? 'Notificações bloqueadas!\n\nPara desbloquear:\n1. Clique em 🔒 (à esquerda do URL)\n2. Escolha "Notificações"\n3. Permitir'
+        : 'Notifications bloquées !\n\nPour débloquer:\n1. Cliquez sur 🔒 (à gauche de l\'URL)\n2. Choisissez "Notifications"\n3. Autorisez';
+    alert(message);
 }
 
-// Vérifier les changements
+// Vérifier les changements de permission périodiquement
 setInterval(() => {
-    // Ne pas vérifier sur iOS web
-    if (isIOS && !isStandalone) return;
     if (!("Notification" in window)) return;
     
     const currentPermission = Notification.permission;
@@ -653,7 +656,7 @@ setInterval(() => {
         newState = 'on';
     } else if (currentPermission === 'denied' && notificationState !== 'blocked') {
         newState = 'blocked';
-    } else if (currentPermission === 'default' && notificationState !== 'off') {
+    } else if (currentPermission === 'default' && notificationState !== 'off' && notificationState !== 'asking') {
         newState = 'off';
     }
     
