@@ -443,13 +443,30 @@ if (isset($_GET['logout'])) {
 
   <!-- Bouton "active les notification" --> 
 <script>
-let notificationState = 'off'; // 'off', 'asking', 'on', 'blocked'
+let notificationState = 'off'; // 'off', 'asking', 'on', 'blocked', 'ios-web', 'not-supported'
+
+// Détecter iOS
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const isStandalone = window.navigator.standalone === true || window.matchMedia('(display-mode: standalone)').matches;
 
 // Initialiser
 initNotifications();
 
 function initNotifications() {
+    // iOS dans navigateur web (pas installé comme PWA)
+    if (isIOS && !isStandalone) {
+        updateUI('ios-web');
+        return;
+    }
+    
+    // Vérifier si API Notification existe
     if (!("Notification" in window)) {
+        // Sur iOS PWA installée, les notifications peuvent fonctionner via Service Worker
+        if (isIOS && isStandalone && 'serviceWorker' in navigator) {
+            notificationState = 'off';
+            updateUI('off');
+            return;
+        }
         updateUI('not-supported');
         return;
     }
@@ -470,6 +487,12 @@ function initNotifications() {
 }
 
 async function toggleNotificationState() {
+    // iOS dans navigateur - rediriger vers installation PWA
+    if (isIOS && !isStandalone) {
+        showIOSInstallPrompt();
+        return;
+    }
+    
     if (!("Notification" in window)) return;
     
     if (notificationState === 'off') {
@@ -516,6 +539,7 @@ function updateUI(state) {
             text.textContent = '<?php echo ($lang == 'fr') ? 'Alerte sonore ON' : 'Alerta de sonoro ON'; ?>';
             status.textContent = '✓ <?php echo ($lang == 'fr') ? 'Activée' : 'Habilitado'; ?>';
             status.style.color = '#4CAF50';
+            btn.disabled = false;
             break;
             
         case 'off':
@@ -524,6 +548,7 @@ function updateUI(state) {
             text.textContent = '<?php echo ($lang == 'fr') ? 'Alerte sonore OFF' : 'Alerta sonoro OFF'; ?>';
             status.textContent = '<?php echo ($lang == 'fr') ? 'Cliquez pour activer' : 'Clique para ativar'; ?>';
             status.style.color = '#666';
+            btn.disabled = false;
             break;
             
         case 'blocked':
@@ -532,6 +557,7 @@ function updateUI(state) {
             text.textContent = 'Bloqué';
             status.textContent = 'Autorisez dans les paramètres';
             status.style.color = '#f44336';
+            btn.disabled = false;
             break;
             
         case 'asking':
@@ -540,17 +566,43 @@ function updateUI(state) {
             text.textContent = 'Demande en cours...';
             status.textContent = 'Répondez à la popup';
             status.style.color = '#FF9800';
+            btn.disabled = true;
+            break;
+            
+        case 'ios-web':
+            // iOS dans Safari/navigateur - inciter à installer la PWA
+            btn.style.background = 'linear-gradient(135deg, #0055A4, #E31C79)';
+            icon.textContent = '📱';
+            text.textContent = '<?php echo ($lang == 'fr') ? 'Installer l\'app' : 'Instalar app'; ?>';
+            status.textContent = '<?php echo ($lang == 'fr') ? 'Requis pour les notifications' : 'Necessário para notificações'; ?>';
+            status.style.color = '#0055A4';
+            btn.disabled = false;
             break;
             
         case 'not-supported':
             btn.style.background = '#9E9E9E';
-            icon.textContent = '❌';
-            text.textContent = 'Non supporté';
-            status.textContent = 'Navigateur incompatible';
+            icon.textContent = '📵';
+            text.textContent = '<?php echo ($lang == 'fr') ? 'Non disponible' : 'Indisponível'; ?>';
+            status.textContent = '<?php echo ($lang == 'fr') ? 'Installez l\'app pour les alertes' : 'Instale o app para alertas'; ?>';
             status.style.color = '#9E9E9E';
-            btn.disabled = true;
+            btn.disabled = false;
             break;
     }
+}
+
+function showIOSInstallPrompt() {
+    // Déclencher l'overlay d'installation PWA si disponible
+    const event = new CustomEvent('showPWAInstall');
+    window.dispatchEvent(event);
+    
+    // Fallback si pas d'overlay
+    setTimeout(() => {
+        const lang = document.documentElement.lang || 'fr';
+        const message = lang === 'pt'
+            ? 'Para receber notificações no iOS:\n\n1. Toque em Partilhar (📤)\n2. Selecione "Adicionar ao Ecrã Inicial"\n3. Abra a app instalada\n\nAs notificações só funcionam na app instalada.'
+            : 'Pour recevoir les notifications sur iOS:\n\n1. Appuyez sur Partager (📤)\n2. Sélectionnez "Sur l\'écran d\'accueil"\n3. Ouvrez l\'app installée\n\nLes notifications ne fonctionnent que dans l\'app installée.';
+        alert(message);
+    }, 100);
 }
 
 function showNotification(title, body) {
@@ -590,6 +642,8 @@ chrome://settings/content/notifications`);
 
 // Vérifier les changements
 setInterval(() => {
+    // Ne pas vérifier sur iOS web
+    if (isIOS && !isStandalone) return;
     if (!("Notification" in window)) return;
     
     const currentPermission = Notification.permission;
